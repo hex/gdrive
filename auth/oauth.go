@@ -6,6 +6,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"net/http"
 	"time"
+	"html/template"
 )
 
 type authCodeFn func(string) func() string
@@ -83,14 +84,43 @@ func NewServiceAccountClient(serviceAccountFile string) (*http.Client, error) {
 }
 
 func getConfig(clientId, clientSecret string) *oauth2.Config {
+    server := &http.Server{Addr: ":1988"}
+    go startLocalServer(server)
+	
 	return &oauth2.Config{
 		ClientID:     clientId,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"https://www.googleapis.com/auth/drive"},
-		RedirectURL:  "http://localhost:1",
+		RedirectURL:  "http://localhost:1988",
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  "https://accounts.google.com/o/oauth2/auth",
 			TokenURL: "https://accounts.google.com/o/oauth2/token",
 		},
+	}
+}
+
+func startLocalServer(server *http.Server) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		paramValue := r.URL.Query().Get("code")
+		if paramValue == "" {
+			fmt.Fprintln(w, "<b>No code parameter in request</b>")
+		} else {
+			tmpl := `
+				<label for="paramInput">Verification Code:</label><br />
+				<textarea id="paramTextarea" style="width: 100%; padding: 5px; font-family: monospace; color: blue" readonly>{{.}}</textarea>`
+            t := template.Must(template.New("textarea").Parse(tmpl))
+			t.Execute(w, paramValue)
+			go shutdownServer(server)
+		}
+	})
+	if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		fmt.Println("Error starting or stopping server:", err)
+	}
+}
+
+func shutdownServer(server *http.Server) {
+	if err := server.Shutdown(oauth2.NoContext); err != nil {
+		fmt.Println("Error shutting down server:", err)
 	}
 }
