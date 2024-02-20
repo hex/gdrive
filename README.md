@@ -1,6 +1,6 @@
-gdrive *(temporary fix 400 invalid request) - read release description for how it work*
+gdrive
 ======
-
+this release fixes the 400 invalid request error by creating a local server for the redirect URL which displays the authentication code.
 
 ## Overview
 gdrive is a command line utility for interacting with Google Drive.
